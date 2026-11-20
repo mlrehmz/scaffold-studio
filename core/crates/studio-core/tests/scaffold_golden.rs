@@ -143,7 +143,6 @@ fn plan_validator_accepts_a_good_plan_and_catches_missing_and_invented_files() {
 }
 
 #[test]
-#[ignore]
 fn read_back_finds_boxes_and_imports() {
     let graph = TypeScriptPlugin.read_back(&golden_dir()).unwrap();
     assert_eq!(graph.boxes, ["checkout", "orders_db", "web"]);

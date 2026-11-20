@@ -1,13 +1,19 @@
-//! Language plug-in boundary + scaffold generation (M5). Types are final; the TypeScript plugin is TODO (T09-T14).
+//! Language plug-in boundary and TypeScript scaffold generation (M5).
 //!
 //! `plan` and `materialize` are split on purpose: today `plan` is a deterministic
 //! template; later an LLM proposes the plan and Rust only validates it
 //! (every box present, no invented files) before writing files.
 
 use crate::model::Design;
-use crate::not_implemented;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, path::Path, process::Command};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
+use walkdir::WalkDir;
 
 /// One file to generate. The plan says WHAT; `materialize` decides HOW it looks.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -137,8 +143,65 @@ impl LanguagePlugin for TypeScriptPlugin {
         })
     }
 
-    fn read_back(&self, _dir: &Path) -> Result<CodeGraph, String> {
-        Err(not_implemented("TypeScriptPlugin::read_back ()"))
+    // Read code back into a graph for drift. Walk `<dir>/src/*.ts` in sorted order.
+    // A file is a box if its FIRST line is `// @box <id>`. For each line of the form
+    // `import "./<name>";` (also accept `import ... from "./<name>";`) find the box whose FILE is
+    // `<name>.ts` and record (this box, that box). Result: sorted `boxes`, sorted `imports`,
+    // no duplicates. LAZY: `walkdir` and `regex` are already in Cargo.toml, use them (e.g.
+    // `Regex::new(r#"^import (?:.* from )?"\./([\w-]+)";"#)`, compile it once outside the loop).
+    // Regexes are crude on purpose (tree-sitter comes later). Test: `read_back_finds_boxes_and_imports`.
+    fn read_back(&self, dir: &Path) -> Result<CodeGraph, String> {
+        let src_dir = dir.join("src");
+        let mut paths: Vec<PathBuf> = Vec::new();
+        for entry in WalkDir::new(&src_dir) {
+            let entry = entry.map_err(|e| format!("cannot read {}: {e}", src_dir.display()))?;
+            if entry.file_type().is_file() && entry.path().extension().map_or(false, |ext| ext == "ts") {
+                paths.push(entry.path().to_path_buf());
+            }
+        }
+        paths.sort();
+
+        let mut boxes_by_file = BTreeMap::new();
+        let mut boxes = Vec::new();
+        let mut sources = Vec::new();
+        for path in paths {
+            let source = fs::read_to_string(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+            let box_id = source
+                .lines()
+                .next()
+                .and_then(|line| line.strip_prefix("// @box "))
+                .filter(|id| !id.is_empty())
+                .map(str::to_string);
+            if let Some(id) = &box_id {
+                let file_name = path
+                    .file_stem()
+                    .and_then(|name| name.to_str())
+                    .ok_or_else(|| format!("cannot read TypeScript file name: {}", path.display()))?;
+                boxes_by_file.insert(file_name.to_string(), id.clone());
+                boxes.push(id.clone());
+            }
+            sources.push((box_id, source));
+        }
+
+        let import_pattern = Regex::new(r#"^import (?:.* from )?"\./([\w-]+)";"#)
+            .map_err(|e| format!("cannot compile TypeScript import pattern: {e}"))?;
+        let mut imports = Vec::new();
+        for (box_id, source) in sources {
+            if let Some(from) = box_id {
+                for line in source.lines() {
+                    if let Some(captures) = import_pattern.captures(line) {
+                        if let Some(to) = captures.get(1).and_then(|name| boxes_by_file.get(name.as_str())) {
+                            imports.push((from.clone(), to.clone()));
+                        }
+                    }
+                }
+            }
+        }
+        boxes.sort();
+        boxes.dedup();
+        imports.sort();
+        imports.dedup();
+        Ok(CodeGraph { boxes, imports })
     }
 }
 

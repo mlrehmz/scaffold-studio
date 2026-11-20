@@ -291,8 +291,28 @@ fn check_entry_too_big(ctx: &Ctx) -> Vec<Lint> {
     }]
 }
 
-fn check_trigger_and_finish(_ctx: &Ctx) -> Vec<Lint> {
-    Vec::new()
+fn check_trigger_and_finish(ctx: &Ctx) -> Vec<Lint> {
+    let mut lints = Vec::new();
+    for step in &ctx.process.steps {
+        let path = step_ref(step);
+        if step.trigger.trim().is_empty() {
+            lints.push(Lint {
+                check: "missing_trigger",
+                severity: Severity::Error,
+                path: path.clone(),
+                message: "trigger is empty".into(),
+            });
+        }
+        if step.finish.is_empty() {
+            lints.push(Lint {
+                check: "missing_finish",
+                severity: Severity::Error,
+                path,
+                message: "finish list is empty".into(),
+            });
+        }
+    }
+    lints
 }
 
 fn check_helper_agent(_ctx: &Ctx) -> Vec<Lint> {
@@ -417,7 +437,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn missing_trigger_and_finish_are_reported() {
         let mut p = shop_process();
         p.steps[0].trigger = "   ".into();

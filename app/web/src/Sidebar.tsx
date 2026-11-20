@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { State } from "../../server/src/types";
 import { VoiceRecorder } from "./VoiceRecorder";
 
@@ -8,6 +8,7 @@ interface Props {
   busy: boolean;
   onTranscribe: (audio: Blob) => Promise<string>;
   onIntent: (text: string) => void;
+  onPreferences: (preferences: string) => void;
   onAccept: () => void;
   onReject: () => void;
   onUndo: () => void;
@@ -16,13 +17,27 @@ interface Props {
 
 export function Sidebar(p: Props) {
   const [text, setText] = useState("");
+  const [sending, setSending] = useState<string | null>(null);
   const [view, setView] = useState<"inspector" | "scratchpad">("inspector");
-  const [messages, setMessages] = useState<string[]>([]);
+  const [preferences, setPreferences] = useState(p.state.preferences);
+  const conversationRef = useRef<HTMLDivElement>(null);
   const { pending, violations, design } = p.state;
+  const latestMessage = p.state.conversation.at(-1);
   const box = design.box.find((b) => b.id === p.selected);
   // The Rust gatekeeper already decided; the UI only shows its verdict.
   const v = pending?.verdict;
   const problems = [...(v?.errors ?? []), ...(v?.violations.map((x) => x.message) ?? [])];
+
+  useEffect(() => {
+    const conversation = conversationRef.current;
+    if (conversation) conversation.scrollTop = conversation.scrollHeight;
+  }, [p.state.conversation.length, p.busy]);
+
+  useEffect(() => {
+    if (!p.busy) setSending(null);
+  }, [p.busy]);
+
+  useEffect(() => setPreferences(p.state.preferences), [p.state.preferences]);
 
   return (
     <aside className="sidebar">
@@ -32,15 +47,29 @@ export function Sidebar(p: Props) {
       </div>
       {view === "scratchpad" && (
         <>
-          <div className="scratchpad-intro"><strong>Design conversation</strong><span>Voice is transcribed locally. Review the text before sending.</span></div>
-          <div className="conversation" aria-live="polite">
-            {messages.length === 0 ? <p className="muted">Describe a design change. Proposals will appear here for review.</p> : messages.map((message, index) => <p className="message" key={index}>{message}</p>)}
+          <div className="scratchpad-intro"><strong>Design conversation</strong><span>Local model context is saved with this design.</span>{p.state.localModelEnabled && <small>The first request may download the 175 MB embedding model.</small>}</div>
+          <div className="conversation" aria-live="polite" ref={conversationRef}>
+            {p.state.conversation.length === 0 ? <p className="muted">Describe a design change. Proposals will appear here for review.</p> : p.state.conversation.map((message, index) => (
+              <article className={`chat-message ${message.role}`} key={`${index}-${message.role}`}>
+                <strong>{message.role === "user" ? "You" : "Scaffold Studio"}</strong>
+                <p>{message.content}</p>
+                {message.role === "assistant" && <div className="chat-actions">
+                  {message.rationale && <details><summary>Reasoning summary</summary><p>{message.rationale}</p></details>}
+                  <button className="icon-button" type="button" aria-label="Read response aloud" title="Read response aloud" disabled={!("speechSynthesis" in window)} onClick={() => {
+                    window.speechSynthesis.cancel();
+                    window.speechSynthesis.speak(new SpeechSynthesisUtterance(message.content));
+                  }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Zm12.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12Zm-2.5-9v2.06a7 7 0 0 1 0 13.88V21a9 9 0 0 0 0-18Z" /></svg></button>
+                </div>}
+              </article>
+            ))}
+            {sending && p.busy && (latestMessage?.role !== "user" || latestMessage.content !== sending) && <article className="chat-message user"><strong>You</strong><p>{sending}</p></article>}
+            {p.busy && <p className="assistant-typing" role="status">Preparing a proposal…</p>}
           </div>
           <form onSubmit={(e) => {
             e.preventDefault();
             const prompt = text.trim();
             if (!prompt) return;
-            setMessages((items) => [...items, prompt]);
+            setSending(prompt);
             p.onIntent(prompt);
             setText("");
           }}>
@@ -48,6 +77,12 @@ export function Sidebar(p: Props) {
             <textarea id="scratchpad-prompt" value={text} onChange={(e) => setText(e.target.value)} placeholder="Describe what you want to design…" disabled={p.busy} />
             <div className="row"><button disabled={p.busy || !text.trim()}>Send for proposal</button><VoiceRecorder busy={p.busy} onTranscribe={p.onTranscribe} onTranscript={(transcript) => setText((current) => [current, transcript].filter(Boolean).join("\n"))} /></div>
           </form>
+          <details className="memory-settings">
+            <summary>Memory and preferences</summary>
+            <p className="muted">Tell the model what you prefer. This stays in the local project folder.</p>
+            <textarea aria-label="Saved preferences" value={preferences} maxLength={2000} onChange={(event) => setPreferences(event.target.value)} placeholder="For example: prefer simple modules and clear trade-offs." />
+            <button type="button" className="quiet" disabled={p.busy} onClick={() => p.onPreferences(preferences)}>Save preferences</button>
+          </details>
           {p.state.pending && <section className={`panel ${v?.ok ? "ok" : "blocked"}`}><h2>Proposal review</h2><p>{p.state.pending.proposal.rationale}</p><pre className="proposal-commands">{JSON.stringify(p.state.pending.proposal.commands, null, 2)}</pre>{problems.map((m) => <p key={m} className="problem">{m}</p>)}<div className="row"><button onClick={p.onAccept} disabled={!v?.ok || p.busy}>Accept</button><button className="quiet" onClick={p.onReject} disabled={p.busy}>Reject</button></div></section>}
         </>
       )}

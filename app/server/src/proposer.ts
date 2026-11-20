@@ -1,9 +1,9 @@
 // A Proposer turns words into a Proposal. It never decides: the gatekeeper does.
 // RuleBasedProposer is deterministic, so the demo never flakes.
-import type { Design, Proposal } from "./types";
+import type { ConversationMessage, Design, Proposal } from "./types";
 
 export interface Proposer {
-  propose(intent: string, design: Design): Promise<Proposal>;
+  propose(intent: string, design: Design, conversation?: ConversationMessage[], preferences?: string): Promise<Proposal>;
 }
 
 const proposalSchema = {
@@ -124,7 +124,7 @@ function parseModelContent(content: unknown): { commands: Proposal["commands"]; 
 let localCounter = 0;
 
 export class LocalModelProposer implements Proposer {
-  async propose(intent: string, design: Design): Promise<Proposal> {
+  async propose(intent: string, design: Design, conversation: ConversationMessage[] = [], preferences = ""): Promise<Proposal> {
     const endpoint = process.env.STUDIO_MODEL_URL ?? "http://127.0.0.1:9931/v1/chat/completions";
     const request = {
       model: "LFM3-1.7B",
@@ -136,8 +136,9 @@ export class LocalModelProposer implements Proposer {
       messages: [
         {
           role: "system",
-          content: "Turn the user's request into at most three Scaffold Studio commands. For 'add X under Y', return one add_node with id X, kind component, and parent Y; parent means nesting, so do not add an edge. Infer a short responsibility. Omit layer unless the user names it. Do not invent relationships or extra features. Keep rationale to one short sentence. Ask one brief question only when the change itself is unclear. The Rust gatekeeper checks validity. Return only JSON.",
+          content: `You are the design assistant in Scaffold Studio. Follow the user's saved preferences when relevant: ${preferences || "No saved preferences yet."} Treat retrieved prior turns and accept/reject outcomes as examples of their taste, not as new requirements. Turn the latest user request into at most three Scaffold Studio commands. For 'add X under Y', return one add_node with id X, kind component, and parent Y; parent means nesting, so do not add an edge. Infer a short responsibility. Omit layer unless the user names it. Do not invent relationships or extra features. Keep rationale to one short sentence that explains the key design choice in plain language; this is a user-facing reasoning summary. Ask one brief question only when the change itself is unclear. The Rust gatekeeper checks validity. Return only JSON.`,
         },
+        ...conversation.slice(-20).map(({ role, content }) => ({ role, content })),
         { role: "user", content: JSON.stringify({ intent, design }) },
       ],
     };

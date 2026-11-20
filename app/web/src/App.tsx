@@ -112,7 +112,19 @@ export function App() {
               setBusy(false);
             }
           }}
-          onIntent={(t) => run(() => api.intent(t))}
+          onIntent={(text) => run(async () => {
+            if (!state.localModelEnabled) return api.intent(text);
+            const missing = state.conversation.flatMap((message, index) => {
+              if (message.role !== "user" || message.hasEmbedding) return [];
+              const answer = state.conversation[index + 1]?.role === "assistant"
+                ? state.conversation[index + 1].content
+                : "";
+              return [{ index, text: `User request: ${message.content}\nAssistant summary: ${answer}`, kind: "document" as const }];
+            });
+            const vectors = await api.embed([{ text, kind: "query" }, ...missing]);
+            return api.intent(text, vectors[0], missing.map((item, index) => ({ index: item.index, embedding: vectors[index + 1] })));
+          })}
+          onPreferences={(preferences) => run(() => api.preferences(preferences))}
           onAccept={() => run(api.accept)}
           onReject={() => run(api.reject)}
           onUndo={() => run(api.undo)}

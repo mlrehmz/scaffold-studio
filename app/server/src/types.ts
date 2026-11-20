@@ -80,4 +80,14 @@ export interface State {
   violations: Violation[]; // problems in the current design
   pending: Pending | null;
   canUndo: boolean;
+  conversation: ConversationMessage[];
+  preferences: string;
+  localModelEnabled: boolean;
+}
+
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+  rationale?: string;
+  hasEmbedding?: boolean;
 }

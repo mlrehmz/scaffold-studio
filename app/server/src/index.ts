@@ -4,6 +4,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { LocalModelProposer, RuleBasedProposer, type Proposer } from "./proposer";
+import { isEmbedding, readConversation, recordProposalOutcome, retrieveConversation, writeConversation } from "./conversation";
 import { isAudioRecording, transcribe } from "./speech";
 import * as studio from "./studio";
 import type { Pending, State } from "./types";
@@ -14,6 +15,7 @@ const DESIGN = process.env.STUDIO_DESIGN ?? join(ROOT, ".studio/design.toml");
 const PROCESS = join(dirname(DESIGN), "process.toml");
 const LAYOUT = join(dirname(DESIGN), "layout.toml");
 const NOTES = join(dirname(DESIGN), "agent");
+const CONVERSATION = join(dirname(DESIGN), "conversation.json");
 if (!existsSync(DESIGN)) {
   mkdirSync(dirname(DESIGN), { recursive: true });
   copyFileSync(join(ROOT, "examples/shop/design.toml"), DESIGN);
@@ -22,9 +24,11 @@ if (!existsSync(DESIGN)) {
 const proposer: Proposer = process.env.STUDIO_PROPOSER === "local"
   ? new LocalModelProposer()
   : new RuleBasedProposer();
+const localModelEnabled = process.env.STUDIO_PROPOSER === "local";
 
 let pending: Pending | null = null;
 const history: string[] = []; // snapshots of design.toml text; undo = restore the last one
+let conversation = readConversation(CONVERSATION);
 
 function state(): State {
   const { design, violations } = studio.show(DESIGN);
@@ -37,10 +41,19 @@ function state(): State {
     violations,
     pending,
     canUndo: history.length > 0,
+    conversation: conversation.messages.map(({ role, content, rationale, embedding }) => ({
+      role, content, rationale, hasEmbedding: embedding !== undefined,
+    })),
+    preferences: conversation.preferences,
+    localModelEnabled,
   };
 }
 
 const json = (body: unknown, status = 200) => Response.json(body, { status });
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 async function handle(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -56,9 +69,39 @@ async function handle(req: Request): Promise<Response> {
     }
 
     if (req.method === "POST" && path === "/api/intent") {
-      const { text } = (await req.json()) as { text: string };
-      const proposal = await proposer.propose(text, studio.show(DESIGN).design);
+      const body = await req.json();
+      if (!isObject(body)) return json({ error: "expected a message object" }, 400);
+      const text = body.text;
+      if (typeof text !== "string" || !text.trim()) return json({ error: "expected a non-empty message" }, 400);
+      if (body.embedding !== undefined && !isEmbedding(body.embedding)) return json({ error: "invalid query embedding" }, 400);
+      if (body.historyEmbeddings !== undefined && (!Array.isArray(body.historyEmbeddings) || body.historyEmbeddings.length > 40 || !body.historyEmbeddings.every((item) => {
+        if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
+        const entry = item as { index?: unknown; embedding?: unknown };
+        return Number.isInteger(entry.index) && isEmbedding(entry.embedding);
+      }))) return json({ error: "invalid conversation embeddings" }, 400);
+      const historyEmbeddings = (body.historyEmbeddings ?? []) as { index: number; embedding: number[] }[];
+      for (const item of historyEmbeddings) {
+        const previousMessage = conversation.messages[item.index];
+        if (previousMessage?.role === "user") previousMessage.embedding = item.embedding;
+      }
+      const userMessage = { role: "user" as const, content: text.trim(), ...(isEmbedding(body.embedding) ? { embedding: body.embedding } : {}) };
+      conversation.messages.push(userMessage);
+      writeConversation(CONVERSATION, conversation);
+      const context = retrieveConversation(conversation.messages.slice(0, -1), text.trim(), isEmbedding(body.embedding) ? body.embedding : undefined);
+      const proposal = await proposer.propose(text.trim(), studio.show(DESIGN).design, context, conversation.preferences);
+      conversation.messages.push({ role: "assistant", content: proposal.rationale, rationale: proposal.rationale });
+      writeConversation(CONVERSATION, conversation);
       pending = { proposal, verdict: studio.evaluate(DESIGN, proposal) };
+      return json(state());
+    }
+
+    if (req.method === "POST" && path === "/api/preferences") {
+      const body = await req.json();
+      if (!isObject(body)) return json({ error: "expected a preferences object" }, 400);
+      const preferences = body.preferences;
+      if (typeof preferences !== "string" || preferences.length > 2000) return json({ error: "preferences must be text under 2000 characters" }, 400);
+      conversation.preferences = preferences.trim();
+      writeConversation(CONVERSATION, conversation);
       return json(state());
     }
 
@@ -78,11 +121,17 @@ async function handle(req: Request): Promise<Response> {
       const verdict = studio.apply(DESIGN, pending.proposal); // the gatekeeper re-checks
       if (!verdict.ok) return json({ error: "blocked by rules or errors" }, 409);
       history.push(snapshot);
+      recordProposalOutcome(conversation, "The proposed change was accepted and applied.");
+      writeConversation(CONVERSATION, conversation);
       pending = null;
       return json(state());
     }
 
     if (req.method === "POST" && path === "/api/reject") {
+      if (pending) {
+        recordProposalOutcome(conversation, "The proposed change was rejected; the design was left unchanged.");
+        writeConversation(CONVERSATION, conversation);
+      }
       pending = null;
       return json(state());
     }

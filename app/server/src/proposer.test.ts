@@ -49,3 +49,26 @@ test("local model output becomes a local proposal and invalid output asks a ques
     globalThis.fetch = originalFetch;
   }
 });
+
+test("local model receives retrieved turns and saved preferences", async () => {
+  const originalFetch = globalThis.fetch;
+  let request: unknown = null;
+  globalThis.fetch = Object.assign(
+    async (_input: RequestInfo | URL, init?: RequestInit) => {
+      request = JSON.parse(String(init?.body));
+      return Response.json({ choices: [{ message: { content: JSON.stringify({ commands: [{ op: "ask_question", text: "Which one?" }], rationale: "I need one detail." }) } }] });
+    },
+    { preconnect: async () => {} },
+  );
+  try {
+    await new LocalModelProposer().propose("add another service", design, [
+      { role: "user", content: "Use small modules." },
+      { role: "assistant", content: "I kept the design modular." },
+    ], "Prefer small, clear modules.");
+    expect(JSON.stringify(request)).toContain("Prefer small, clear modules.");
+    expect(JSON.stringify(request)).toContain("Use small modules.");
+    expect(JSON.stringify(request)).toContain("I kept the design modular.");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

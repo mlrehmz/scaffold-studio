@@ -7,7 +7,7 @@
 use crate::model::Design;
 use crate::not_implemented;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{path::Path, process::Command};
 
 /// One file to generate. The plan says WHAT; `materialize` decides HOW it looks.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -123,8 +123,18 @@ impl LanguagePlugin for TypeScriptPlugin {
         Ok(files)
     }
 
-    fn check(&self, _dir: &Path) -> Result<CheckResult, String> {
-        Err(not_implemented("TypeScriptPlugin::check ()"))
+    fn check(&self, dir: &Path) -> Result<CheckResult, String> {
+        let output = Command::new("bunx")
+            .args(["tsc", "--noEmit", "-p", "."])
+            .current_dir(dir)
+            .output()
+            .map_err(|e| format!("cannot run bunx: {e}; install Bun (https://bun.sh) or TypeScript"))?;
+        let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
+        text.push_str(&String::from_utf8_lossy(&output.stderr));
+        Ok(CheckResult {
+            ok: output.status.success(),
+            output: text,
+        })
     }
 
     fn read_back(&self, _dir: &Path) -> Result<CodeGraph, String> {

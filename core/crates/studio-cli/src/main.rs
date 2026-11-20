@@ -4,13 +4,14 @@
 //! Exit codes: 0 ok, 1 checked and not ok, 2 usage or I/O error.
 
 use serde::Serialize;
-use std::{env, fs, process::exit};
+use std::{env, fs, path::Path, process::exit};
 use studio_core::{
     evaluate::evaluate_json,
     model::Design,
     notes::{lint_notes, step_paths, write_notes, Severity},
     process::{derive_process, merge_process, Process},
     rules::check_rules,
+    scaffold::{validate_plan, LanguagePlugin, TypeScriptPlugin},
     tokens::estimate_tokens,
     validate::Issue,
 };
@@ -24,7 +25,8 @@ const USAGE: &str = "usage:
   studio process  <design.toml> <process.toml>  derive steps, ADD missing ones to process.toml, print JSON
   studio notes    <design.toml> <process.toml> <notes_dir>   write INDEX.md + steps/*.md
   studio lint     <process.toml> <notes_dir>    lint the notes (exit 1 if any error)
-later (not implemented): scaffold, drift, replay, score, schema, context";
+  studio scaffold <design.toml> <out_dir>       generate a TypeScript project
+later (not implemented): drift, replay, score, schema, context";
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -122,6 +124,27 @@ fn run(args: &[String]) -> Result<i32, String> {
                 note_tokens,
             });
             Ok(if errors == 0 { 0 } else { 1 })
+        }
+        ["scaffold", design_path, out_dir] => {
+            let design = load_or_exit(design_path)?;
+            let plugin = TypeScriptPlugin;
+            let plan = plugin.plan(&design)?;
+            let problems = validate_plan(&design, &plan);
+            if !problems.is_empty() {
+                print_json(&problems);
+                return Ok(1);
+            }
+            let generated = plugin.materialize(&plan)?;
+            for file in &generated {
+                let path = Path::new(out_dir).join(&file.path);
+                if let Some(parent) = path.parent() {
+                    fs::create_dir_all(parent).map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
+                }
+                fs::write(&path, &file.content).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+            }
+            let paths: Vec<String> = generated.iter().map(|file| file.path.clone()).collect();
+            print_json(&paths);
+            Ok(0)
         }
         _ => Err(USAGE.to_string()),
     }

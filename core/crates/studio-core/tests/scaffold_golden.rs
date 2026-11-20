@@ -88,14 +88,12 @@ fn materialize_is_deterministic() {
 }
 
 #[test]
-#[ignore]
 fn generated_shop_compiles() {
     let result = TypeScriptPlugin.check(&golden_dir()).unwrap();
     assert!(result.ok, "tsc said: {}", result.output);
 }
 
 #[test]
-#[ignore]
 fn type_errors_are_reported() {
     let dir = std::env::temp_dir().join(format!("studio-bad-ts-{}", std::process::id()));
     let mut files = BTreeMap::new();

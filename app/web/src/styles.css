@@ -54,6 +54,7 @@ input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px
 .panel-switch .tab { padding: .55rem .8rem; }
 .scratchpad-intro { display: grid; gap: .25rem; }
 .scratchpad-intro span, .muted { color: var(--ink-soft); font-size: .88rem; }
+.proposal-commands { max-height: 12rem; overflow: auto; padding: .7rem; color: var(--ink); background: #f3f5f1; border: 1px solid var(--grid); border-radius: 8px; font-size: .78rem; }
 .conversation { min-height: 160px; padding: .75rem; border: 1px solid var(--grid); border-radius: var(--radius); background: #fbf7e9; }
 .message { margin: 0 0 .5rem; padding: .65rem .75rem; border-left: 3px solid var(--accent); background: var(--panel); border-radius: 4px; white-space: pre-wrap; }
 .bottom { margin-top: auto; }

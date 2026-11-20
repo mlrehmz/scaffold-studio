@@ -5,6 +5,8 @@
 # Bun and frontend build output
 node_modules/
 /app/web/dist/
+/app/local-ai/.venv/
+/app/local-ai/__pycache__/
 
 # Local Scaffold Studio state
 .studio/

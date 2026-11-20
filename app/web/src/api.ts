@@ -28,4 +28,13 @@ export const api = {
     if (!res.ok) throw new Error(data.error ?? res.statusText);
     return data as ProcessView;
   },
+  transcribe: async (audio: Blob): Promise<string> => {
+    const form = new FormData();
+    form.append("audio", audio, "recording.webm");
+    const res = await fetch("/api/transcribe", { method: "POST", body: form });
+    const data = await res.json() as { text?: string; error?: string };
+    if (!res.ok) throw new Error(data.error ?? res.statusText);
+    if (typeof data.text !== "string") throw new Error("speech service returned no transcript");
+    return data.text;
+  },
 };

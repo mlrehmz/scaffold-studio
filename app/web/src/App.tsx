@@ -100,6 +100,18 @@ export function App() {
           state={state}
           selected={selected}
           busy={busy}
+          onTranscribe={async (audio) => {
+            setBusy(true);
+            setError(null);
+            try {
+              return await api.transcribe(audio);
+            } catch (e) {
+              setError(e instanceof Error ? e.message : String(e));
+              return "";
+            } finally {
+              setBusy(false);
+            }
+          }}
           onIntent={(t) => run(() => api.intent(t))}
           onAccept={() => run(api.accept)}
           onReject={() => run(api.reject)}

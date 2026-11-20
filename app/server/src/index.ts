@@ -3,7 +3,8 @@
 // /api/lock/:id, /api/unlock/:id. All return the full State.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { RuleBasedProposer, type Proposer } from "./proposer";
+import { LocalModelProposer, RuleBasedProposer, type Proposer } from "./proposer";
+import { transcribe } from "./speech";
 import * as studio from "./studio";
 import type { Pending, State } from "./types";
 
@@ -18,7 +19,9 @@ if (!existsSync(DESIGN)) {
   copyFileSync(join(ROOT, "examples/shop/design.toml"), DESIGN);
 }
 
-const proposer: Proposer = new RuleBasedProposer();
+const proposer: Proposer = process.env.STUDIO_PROPOSER === "local"
+  ? new LocalModelProposer()
+  : new RuleBasedProposer();
 
 let pending: Pending | null = null;
 const history: string[] = []; // snapshots of design.toml text; undo = restore the last one
@@ -57,6 +60,15 @@ async function handle(req: Request): Promise<Response> {
       const proposal = await proposer.propose(text, studio.show(DESIGN).design);
       pending = { proposal, verdict: studio.evaluate(DESIGN, proposal) };
       return json(state());
+    }
+
+    if (req.method === "POST" && path === "/api/transcribe") {
+      const audio = (await req.formData()).get("audio");
+      if (!(audio instanceof File) || !audio.type.startsWith("audio/") || audio.size === 0) {
+        return json({ error: "expected a non-empty audio recording" }, 400);
+      }
+      if (audio.size > 25_000_000) return json({ error: "recording is larger than 25 MB" }, 413);
+      return json({ text: await transcribe(audio) });
     }
 
     if (req.method === "POST" && path === "/api/accept") {

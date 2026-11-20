@@ -1,10 +1,12 @@
 import { useState } from "react";
 import type { State } from "../../server/src/types";
+import { VoiceRecorder } from "./VoiceRecorder";
 
 interface Props {
   state: State;
   selected: string | null;
   busy: boolean;
+  onTranscribe: (audio: Blob) => Promise<string>;
   onIntent: (text: string) => void;
   onAccept: () => void;
   onReject: () => void;
@@ -30,7 +32,7 @@ export function Sidebar(p: Props) {
       </div>
       {view === "scratchpad" && (
         <>
-          <div className="scratchpad-intro"><strong>Design conversation</strong><span>Local text and speech models are not connected yet.</span></div>
+          <div className="scratchpad-intro"><strong>Design conversation</strong><span>Voice is transcribed locally. Review the text before sending.</span></div>
           <div className="conversation" aria-live="polite">
             {messages.length === 0 ? <p className="muted">Describe a design change. Proposals will appear here for review.</p> : messages.map((message, index) => <p className="message" key={index}>{message}</p>)}
           </div>
@@ -44,9 +46,9 @@ export function Sidebar(p: Props) {
           }}>
             <label htmlFor="scratchpad-prompt">Your prompt</label>
             <textarea id="scratchpad-prompt" value={text} onChange={(e) => setText(e.target.value)} placeholder="Describe what you want to design…" disabled={p.busy} />
-            <div className="row"><button disabled={p.busy || !text.trim()}>Send for proposal</button><button type="button" className="quiet" disabled title="Speech input will be connected with the local speech model later">Voice · soon</button></div>
+            <div className="row"><button disabled={p.busy || !text.trim()}>Send for proposal</button><VoiceRecorder busy={p.busy} onTranscribe={p.onTranscribe} onTranscript={(transcript) => setText((current) => [current, transcript].filter(Boolean).join("\n"))} /></div>
           </form>
-          {p.state.pending && <section className={`panel ${v?.ok ? "ok" : "blocked"}`}><h2>Proposal review</h2><p>{p.state.pending.proposal.rationale}</p>{problems.map((m) => <p key={m} className="problem">{m}</p>)}<div className="row"><button onClick={p.onAccept} disabled={!v?.ok || p.busy}>Accept</button><button className="quiet" onClick={p.onReject} disabled={p.busy}>Reject</button></div></section>}
+          {p.state.pending && <section className={`panel ${v?.ok ? "ok" : "blocked"}`}><h2>Proposal review</h2><p>{p.state.pending.proposal.rationale}</p><pre className="proposal-commands">{JSON.stringify(p.state.pending.proposal.commands, null, 2)}</pre>{problems.map((m) => <p key={m} className="problem">{m}</p>)}<div className="row"><button onClick={p.onAccept} disabled={!v?.ok || p.busy}>Accept</button><button className="quiet" onClick={p.onReject} disabled={p.busy}>Reject</button></div></section>}
         </>
       )}
       {view === "inspector" && <>

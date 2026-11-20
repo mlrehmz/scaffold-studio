@@ -10,6 +10,7 @@ type Tab = "design" | "process";
 export function App() {
   const [state, setState] = useState<State | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("design");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -42,6 +43,15 @@ export function App() {
     return <div className="boot">{error ?? "Loading design…"}</div>;
   }
 
+  const crumbs: { id: string; label: string }[] = [];
+  let cursor = open;
+  while (cursor) {
+    const box = state.design.box.find((item) => item.id === cursor);
+    if (!box) break;
+    crumbs.unshift({ id: box.id, label: box.id });
+    cursor = box.parent ?? null;
+  }
+
   return (
     <div className="app">
       <header>
@@ -54,7 +64,13 @@ export function App() {
       </header>
       <main>
         {tab === "design" ? (
-          <div className="canvas"><Canvas state={state} selected={selected} onSelect={setSelected} /></div>
+          <div className="canvas">
+            <div className="breadcrumbs">
+              <button onClick={() => setOpen(null)}>top</button>
+              {crumbs.map((crumb) => <span key={crumb.id}> › <button onClick={() => setOpen(crumb.id)}>{crumb.label}</button></span>)}
+            </div>
+            <Canvas state={state} selected={selected} onSelect={setSelected} open={open} onOpen={setOpen} />
+          </div>
         ) : (
           <section className="process-list">
             {!processView ? <p>Loading process…</p> : processView.process.steps.map((step, index) => {

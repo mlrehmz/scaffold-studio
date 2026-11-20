@@ -315,8 +315,40 @@ fn check_trigger_and_finish(ctx: &Ctx) -> Vec<Lint> {
     lints
 }
 
-fn check_helper_agent(_ctx: &Ctx) -> Vec<Lint> {
-    Vec::new()
+fn check_helper_agent(ctx: &Ctx) -> Vec<Lint> {
+    let mut lints = Vec::new();
+    for step in &ctx.process.steps {
+        let Some(helper) = &step.helper_agent else {
+            continue;
+        };
+        let mut missing = Vec::new();
+        if helper.spawn_when.trim().is_empty() {
+            missing.push("spawn_when");
+        }
+        if helper.do_not_spawn_when.trim().is_empty() {
+            missing.push("do_not_spawn_when");
+        }
+        if helper.context_files.is_empty() {
+            missing.push("context_files");
+        }
+        if helper.return_format.trim().is_empty()
+            || !helper.return_format.chars().any(|c| c.is_ascii_digit())
+        {
+            missing.push("return_format");
+        }
+        if helper.must_not_touch.is_empty() {
+            missing.push("must_not_touch");
+        }
+        for field in missing {
+            lints.push(Lint {
+                check: "helper_agent_incomplete",
+                severity: Severity::Error,
+                path: step_ref(step),
+                message: format!("helper agent is missing {field}"),
+            });
+        }
+    }
+    lints
 }
 
 fn check_similar_triggers(_ctx: &Ctx) -> Vec<Lint> {
@@ -448,7 +480,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn helper_agent_missing_return_format_is_reported() {
         let mut p = shop_process();
         p.steps[0].helper_agent = Some(HelperAgent {

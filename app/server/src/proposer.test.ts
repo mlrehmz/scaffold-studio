@@ -50,6 +50,57 @@ test("local model output becomes a local proposal and invalid output asks a ques
   }
 });
 
+test("local model requests use NanoI1", async () => {
+  const originalFetch = globalThis.fetch;
+  let request: unknown = null;
+  globalThis.fetch = Object.assign(
+    async (_input: RequestInfo | URL, init?: RequestInit) => {
+      request = JSON.parse(String(init?.body));
+      return Response.json({ choices: [{ message: { content: JSON.stringify({ commands: [{ op: "ask_question", text: "Hello! What would you like to design?" }], rationale: "I greeted the user." }) } }] });
+    },
+    { preconnect: async () => {} },
+  );
+  try {
+    const proposal = await new LocalModelProposer().propose("add payments", design);
+    expect(proposal.commands[0]).toEqual({ op: "ask_question", text: "Hello! What would you like to design?" });
+    expect((request as { model: string }).model).toBe("NanoI1-155M-Instruct");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("local proposer answers a greeting without calling the model", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = Object.assign(
+    async () => { calls += 1; throw new Error("unexpected model request"); },
+    { preconnect: async () => {} },
+  );
+  try {
+    const proposal = await new LocalModelProposer().propose("hi", design);
+    expect(proposal.commands[0]).toEqual({ op: "ask_question", text: "Hi! What would you like to design?" });
+    expect(calls).toBe(0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("local proposer uses a supported intent when NanoI1 returns invalid output", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = Object.assign(
+    async () => { calls += 1; return Response.json({ choices: [{ message: { content: "not valid proposal JSON" } }] }); },
+    { preconnect: async () => {} },
+  );
+  try {
+    const proposal = await new LocalModelProposer().propose("add payments", design);
+    expect(proposal.commands[0]).toMatchObject({ op: "add_node", id: "payments" });
+    expect(calls).toBe(2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("local model receives retrieved turns and saved preferences", async () => {
   const originalFetch = globalThis.fetch;
   let request: unknown = null;

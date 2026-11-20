@@ -21,10 +21,10 @@ if (!existsSync(DESIGN)) {
   copyFileSync(join(ROOT, "examples/shop/design.toml"), DESIGN);
 }
 
-const proposer: Proposer = process.env.STUDIO_PROPOSER === "local"
-  ? new LocalModelProposer()
-  : new RuleBasedProposer();
-const localModelEnabled = process.env.STUDIO_PROPOSER === "local";
+const useRuleBasedProposer = process.env.STUDIO_PROPOSER === "rules";
+const ruleBasedProposer = new RuleBasedProposer();
+const proposer: Proposer = useRuleBasedProposer ? ruleBasedProposer : new LocalModelProposer();
+const localModelEnabled = !useRuleBasedProposer;
 
 let pending: Pending | null = null;
 const history: string[] = []; // snapshots of design.toml text; undo = restore the last one
@@ -88,7 +88,11 @@ async function handle(req: Request): Promise<Response> {
       conversation.messages.push(userMessage);
       writeConversation(CONVERSATION, conversation);
       const context = retrieveConversation(conversation.messages.slice(0, -1), text.trim(), isEmbedding(body.embedding) ? body.embedding : undefined);
-      const proposal = await proposer.propose(text.trim(), studio.show(DESIGN).design, context, conversation.preferences);
+      const design = studio.show(DESIGN).design;
+      const simpleProposal = localModelEnabled ? await ruleBasedProposer.propose(text.trim(), design) : null;
+      const proposal = simpleProposal && simpleProposal.rationale !== "Unrecognised intent."
+        ? simpleProposal
+        : await proposer.propose(text.trim(), design, context, conversation.preferences);
       conversation.messages.push({ role: "assistant", content: proposal.rationale, rationale: proposal.rationale });
       writeConversation(CONVERSATION, conversation);
       pending = { proposal, verdict: studio.evaluate(DESIGN, proposal) };

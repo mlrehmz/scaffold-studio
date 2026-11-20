@@ -125,30 +125,40 @@ let localCounter = 0;
 
 export class LocalModelProposer implements Proposer {
   async propose(intent: string, design: Design, conversation: ConversationMessage[] = [], preferences = ""): Promise<Proposal> {
+    if (/^(?:hi|hello|hey)(?: there)?[!.?]*$/i.test(intent.trim())) {
+      const text = "Hi! What would you like to design?";
+      return { id: `local-${++localCounter}`, source: "local", commands: [{ op: "ask_question", text }], rationale: text };
+    }
     const endpoint = process.env.STUDIO_MODEL_URL ?? "http://127.0.0.1:9931/v1/chat/completions";
     const request = {
-      model: "LFM3-1.7B",
+      model: "NanoI1-155M-Instruct",
       temperature: 0.1,
-      max_tokens: 192,
+      max_tokens: 96,
       reasoning_effort: "none",
       chat_template_kwargs: { enable_thinking: false },
       response_format: { type: "json_schema", schema: proposalSchema },
       messages: [
         {
           role: "system",
-          content: `You are the design assistant in Scaffold Studio. Follow the user's saved preferences when relevant: ${preferences || "No saved preferences yet."} Treat retrieved prior turns and accept/reject outcomes as examples of their taste, not as new requirements. Turn the latest user request into at most three Scaffold Studio commands. For 'add X under Y', return one add_node with id X, kind component, and parent Y; parent means nesting, so do not add an edge. Infer a short responsibility. Omit layer unless the user names it. Do not invent relationships or extra features. Keep rationale to one short sentence that explains the key design choice in plain language; this is a user-facing reasoning summary. Ask one brief question only when the change itself is unclear. The Rust gatekeeper checks validity. Return only JSON.`,
+          content: `You are Scaffold Studio's design assistant. Follow saved preferences when relevant: ${preferences || "No saved preferences yet."} Retrieved turns show the user's taste, not new requirements. Propose at most three commands for the latest request. For 'add X under Y', use one add_node with id X, kind component, and parent Y; nesting is not an edge. Infer a brief responsibility and omit layer unless named. Do not invent changes. Ask one brief question if unclear. The Rust gatekeeper checks every proposal. Keep rationale to one short, user-facing design summary. Return only JSON.`,
         },
         ...conversation.slice(-20).map(({ role, content }) => ({ role, content })),
         { role: "user", content: JSON.stringify({ intent, design }) },
       ],
     };
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(request),
-        signal: AbortSignal.timeout(180_000),
-      });
+      let response: Response;
+      try {
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(request),
+          signal: AbortSignal.timeout(20_000),
+        });
+      } catch (error) {
+        if (error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)) break;
+        throw error;
+      }
       if (!response.ok) throw new Error(`local model returned HTTP ${response.status}`);
       const payload: unknown = await response.json();
       const choices = isRecord(payload) && Array.isArray(payload.choices) ? payload.choices : [];
@@ -157,12 +167,7 @@ export class LocalModelProposer implements Proposer {
       const parsed = parseModelContent(message.content);
       if (parsed) return { id: `local-${++localCounter}`, source: "local", ...parsed };
     }
-    return {
-      id: `local-${++localCounter}`,
-      source: "local",
-      commands: [{ op: "ask_question", text: "I couldn't read a valid proposal from the local model. Please rephrase the design request." }],
-      rationale: "The local model returned an invalid response twice.",
-    };
+    return new RuleBasedProposer().propose(intent, design);
   }
 }
 

@@ -1,5 +1,5 @@
 # One-word commands. Needs: Rust (cargo) and Bun.
-.PHONY: setup build test server local-server web t specs watch fmt local-ai-setup local-ai-model local-ai-speech-model model
+.PHONY: setup build test server local-server web t specs watch fmt local-ai-setup local-ai-model local-ai-speech-model model model-lfm3
 
 setup:            ## install JS deps
 	cd app/server && bun install
@@ -38,6 +38,7 @@ local-ai-setup:   ## create the local CPU speech environment
 	uv python install 3.12
 	uv venv --python 3.12 app/local-ai/.venv
 	uv pip install --python app/local-ai/.venv/bin/python -r app/local-ai/requirements.txt
+	uv pip install --python app/local-ai/.venv/bin/python torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
 
 local-ai-model:   ## download the recommended LFM3 GGUF model into the user cache
 	mkdir -p $(HOME)/.local/share/scaffold-studio/models
@@ -46,5 +47,8 @@ local-ai-model:   ## download the recommended LFM3 GGUF model into the user cach
 local-ai-speech-model: ## cache Whisper Small for local CPU transcription
 	HF_HUB_DISABLE_XET=1 app/local-ai/.venv/bin/hf download Systran/faster-whisper-small model.bin config.json tokenizer.json vocabulary.txt
 
-model:            ## run llama.cpp for the installed local model
+model:            ## run the local NanoI1 CPU model
+	app/local-ai/.venv/bin/python app/local-ai/nano_server.py
+
+model-lfm3:       ## run llama.cpp for the installed LFM3 model
 	LD_LIBRARY_PATH=$(HOME)/.local/lib64 $(HOME)/.local/bin/llama-server -m $(HOME)/.local/share/scaffold-studio/models/LFM3-1.7B-Q4_K_M.gguf --alias LFM3-1.7B -c 4096 -t 4 -np 1 --host 127.0.0.1 --port 9931 --cors-origins http://localhost:5173,http://127.0.0.1:5173

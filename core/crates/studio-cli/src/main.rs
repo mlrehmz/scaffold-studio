@@ -6,6 +6,7 @@
 use serde::Serialize;
 use std::{env, fs, path::Path, process::exit};
 use studio_core::{
+    drift::check_drift,
     evaluate::evaluate_json,
     model::Design,
     notes::{lint_notes, step_paths, write_notes, Severity},
@@ -26,7 +27,8 @@ const USAGE: &str = "usage:
   studio notes    <design.toml> <process.toml> <notes_dir>   write INDEX.md + steps/*.md
   studio lint     <process.toml> <notes_dir>    lint the notes (exit 1 if any error)
   studio scaffold <design.toml> <out_dir>       generate a TypeScript project
-later (not implemented): drift, replay, score, schema, context";
+  studio drift    <design.toml> <project_dir>   report design/code drift
+later (not implemented): replay, score, schema, context";
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -145,6 +147,13 @@ fn run(args: &[String]) -> Result<i32, String> {
             let paths: Vec<String> = generated.iter().map(|file| file.path.clone()).collect();
             print_json(&paths);
             Ok(0)
+        }
+        ["drift", design_path, project_dir] => {
+            let design = load_or_exit(design_path)?;
+            let code = TypeScriptPlugin.read_back(Path::new(project_dir))?;
+            let drift = check_drift(&design, &code);
+            print_json(&drift);
+            Ok(if drift.is_empty() { 0 } else { 1 })
         }
         _ => Err(USAGE.to_string()),
     }

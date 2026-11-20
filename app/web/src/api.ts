@@ -21,6 +21,7 @@ export const api = {
   reject: () => call("POST", "reject"),
   undo: () => call("POST", "undo"),
   setLocked: (id: string, locked: boolean) => call("POST", `${locked ? "lock" : "unlock"}/${id}`),
+  savePosition: (id: string, x: number, y: number) => call("POST", "layout", { id, x, y }),
   process: async (): Promise<ProcessView> => {
     const res = await fetch("/api/process");
     const data = await res.json();

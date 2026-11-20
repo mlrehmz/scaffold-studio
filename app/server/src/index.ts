@@ -11,6 +11,7 @@ const ROOT = join(import.meta.dir, "../../..");
 // Work on a copy so the example in git stays clean. Delete .studio/ to reset.
 const DESIGN = process.env.STUDIO_DESIGN ?? join(ROOT, ".studio/design.toml");
 const PROCESS = join(dirname(DESIGN), "process.toml");
+const LAYOUT = join(dirname(DESIGN), "layout.toml");
 const NOTES = join(dirname(DESIGN), "agent");
 if (!existsSync(DESIGN)) {
   mkdirSync(dirname(DESIGN), { recursive: true });
@@ -24,7 +25,16 @@ const history: string[] = []; // snapshots of design.toml text; undo = restore t
 
 function state(): State {
   const { design, violations } = studio.show(DESIGN);
-  return { design, violations, pending, canUndo: history.length > 0 };
+  const layout = existsSync(LAYOUT)
+    ? Bun.TOML.parse(readFileSync(LAYOUT, "utf8")) as { position?: { id: string; x: number; y: number }[] }
+    : {};
+  return {
+    design,
+    layout: Object.fromEntries((layout.position ?? []).map(({ id, x, y }) => [id, { x, y }])),
+    violations,
+    pending,
+    canUndo: history.length > 0,
+  };
 }
 
 const json = (body: unknown, status = 200) => Response.json(body, { status });
@@ -77,6 +87,18 @@ async function handle(req: Request): Promise<Response> {
     if (req.method === "POST" && lockMatch) {
       history.push(readFileSync(DESIGN, "utf8"));
       studio.lock(DESIGN, lockMatch[2], lockMatch[1] === "lock");
+      return json(state());
+    }
+
+    if (req.method === "POST" && path === "/api/layout") {
+      const { id, x, y } = (await req.json()) as { id?: unknown; x?: unknown; y?: unknown };
+      if (typeof id !== "string" || !id || typeof x !== "number" || !Number.isFinite(x) || typeof y !== "number" || !Number.isFinite(y)) {
+        return json({ error: "expected an id and finite x/y coordinates" }, 400);
+      }
+      const current = state().layout;
+      current[id] = { x, y };
+      const position = Object.entries(current).sort(([a], [b]) => a.localeCompare(b)).map(([box, point]) => ({ id: box, ...point }));
+      writeFileSync(LAYOUT, Bun.TOML.stringify({ position }));
       return json(state());
     }
 

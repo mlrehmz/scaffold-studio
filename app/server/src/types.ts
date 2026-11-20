@@ -76,6 +76,7 @@ export interface Pending { proposal: Proposal; verdict: Verdict }
 /** Everything the UI needs. The UI only renders this; it never computes rules. */
 export interface State {
   design: Design;
+  layout: Record<string, { x: number; y: number }>;
   violations: Violation[]; // problems in the current design
   pending: Pending | null;
   canUndo: boolean;

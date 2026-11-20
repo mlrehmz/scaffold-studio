@@ -11,9 +11,10 @@ interface Props {
   onSelect: (id: string | null) => void;
   open: string | null;
   onOpen: (id: string) => void;
+  onPositionSave: (id: string, x: number, y: number) => void;
 }
 
-export function Canvas({ state, selected, onSelect, open, onOpen }: Props) {
+export function Canvas({ state, selected, onSelect, open, onOpen, onPositionSave }: Props) {
   const graph = useMemo(() => buildGraph(state, open), [state, open]);
   // Positions come with the shape they were computed for, so we never draw stale ones.
   const [placed, setPlaced] = useState<{ shape: string; positions: Record<string, { x: number; y: number }> } | null>(null);
@@ -32,7 +33,7 @@ export function Canvas({ state, selected, onSelect, open, onOpen }: Props) {
 
   const nodes: Node[] = graph.nodes.map((n) => ({
     id: n.id,
-    position: positions[n.id] ?? { x: 0, y: 0 },
+    position: state.layout[n.id] ?? positions[n.id] ?? { x: 0, y: 0 },
     width: NODE_W,
     height: NODE_H,
     selected: n.id === selected,
@@ -68,8 +69,9 @@ export function Canvas({ state, selected, onSelect, open, onOpen }: Props) {
       edges={edges}
       onNodeClick={(_, n) => onSelect(n.id)}
       onNodeDoubleClick={(_, n) => onOpen(n.id)}
+      onNodeDragStop={(_, n) => onPositionSave(n.id, n.position.x, n.position.y)}
       onPaneClick={() => onSelect(null)}
-      nodesDraggable={false}
+      nodesDraggable
       fitView
       proOptions={{ hideAttribution: true }}
     >

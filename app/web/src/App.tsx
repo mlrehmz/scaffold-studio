@@ -69,7 +69,14 @@ export function App() {
               <button onClick={() => setOpen(null)}>top</button>
               {crumbs.map((crumb) => <span key={crumb.id}> › <button onClick={() => setOpen(crumb.id)}>{crumb.label}</button></span>)}
             </div>
-            <Canvas state={state} selected={selected} onSelect={setSelected} open={open} onOpen={setOpen} />
+            <Canvas
+              state={state}
+              selected={selected}
+              onSelect={setSelected}
+              open={open}
+              onOpen={setOpen}
+              onPositionSave={(id, x, y) => run(() => api.savePosition(id, x, y))}
+            />
           </div>
         ) : (
           <section className="process-list">

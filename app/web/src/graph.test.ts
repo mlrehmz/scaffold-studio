@@ -7,7 +7,7 @@ const design = (boxes: Design["box"], edge: Design["edge"] = []): Design => ({
   project: { name: "t", target: "typescript" }, box: boxes, edge, rule: [],
 });
 const state = (d: Design, pending: State["pending"] = null, violations: State["violations"] = []): State => ({
-  design: d, violations, pending, canUndo: false,
+  design: d, layout: {}, violations, pending, canUndo: false,
 });
 
 test("a box that exists only in the preview is a ghost; boxes in violations are bad", () => {

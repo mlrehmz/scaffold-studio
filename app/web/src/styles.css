@@ -1,0 +1,73 @@
+/* Solarized light colors with strong ink and clear status colors. */
+:root {
+  --paper: #fdf6e3;
+  --panel: #eee8d5;
+  --ink: #002b36;
+  --ink-soft: #586e75;
+  --grid: #c8c1ad;
+  --accent: #075985;
+  --danger: #a4262c;
+  --ok: #176b45;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
+.app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+.boot { padding: 2rem; }
+
+header { display: flex; align-items: baseline; gap: 1.5rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--grid); }
+header h1 { margin: 0; font-size: 1.1rem; }
+header h1 span { color: var(--ink-soft); font-weight: 400; margin-left: 0.5rem; }
+header .error { margin: 0 0 0 auto; color: var(--danger); }
+nav { display: flex; gap: 0.25rem; }
+.tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 0.25rem 0.6rem; color: var(--ink-soft); cursor: pointer; font: inherit; }
+.tab.on { color: var(--ink); border-color: var(--accent); }
+
+main { display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
+@media (max-width: 800px) {
+  main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(260px, 48vh) minmax(220px, 1fr); height: calc(100vh - 56px); overflow: hidden; }
+  .canvas { min-height: 260px; }
+  .sidebar { min-height: 0; max-height: 100%; border-left: 0; border-top: 1px solid var(--grid); }
+}
+.canvas { min-height: 0; }
+.canvas.empty { display: grid; place-items: center; color: var(--ink-soft); }
+
+.sidebar { display: flex; flex-direction: column; gap: 0.9rem; padding: 1rem; overflow-y: auto; border-left: 1px solid var(--grid); background: color-mix(in srgb, var(--panel) 55%, var(--paper)); }
+label { display: block; font-weight: 700; margin-bottom: 0.3rem; }
+input, textarea { width: 100%; padding: 0.65rem 0.75rem; font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--ink-soft); border-radius: 6px; }
+textarea { min-height: 110px; resize: vertical; }
+input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.panel { background: var(--panel); border: 1px solid var(--grid); border-left: 4px solid var(--accent); border-radius: 6px; padding: 0.7rem 0.9rem; }
+.panel.ok { border-left-color: var(--ok); }
+.panel.blocked { border-left-color: var(--danger); }
+.panel h2 { margin: 0 0 0.3rem; font-size: 0.95rem; }
+.panel p { margin: 0.25rem 0; }
+.panel ul { margin: 0.3rem 0; padding-left: 1.1rem; }
+.problem { color: var(--danger); }
+.question { color: var(--accent); }
+.row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.panel-switch { display: flex; gap: .35rem; border-bottom: 1px solid var(--grid); }
+.panel-switch .tab { padding: .55rem .8rem; }
+.scratchpad-intro { display: grid; gap: .25rem; }
+.scratchpad-intro span, .muted { color: var(--ink-soft); font-size: .88rem; }
+.conversation { min-height: 160px; padding: .75rem; border: 1px solid var(--grid); border-radius: 8px; background: var(--paper); }
+.message { margin: 0 0 .5rem; padding: .65rem .75rem; border-left: 3px solid var(--accent); background: var(--panel); border-radius: 4px; white-space: pre-wrap; }
+.bottom { margin-top: auto; }
+button { font: inherit; padding: 0.4rem 0.9rem; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+button.quiet { background: none; color: var(--ink); border-color: var(--grid); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+code { font-size: 0.85em; }
+
+/* React Flow nodes */
+.react-flow__node.box { width: 210px; padding: 0; text-align: left; background: var(--paper); color: var(--ink); border: 2px solid var(--ink); border-radius: 8px; }
+.react-flow__node.box.selected { border-color: var(--ink); box-shadow: 0 0 0 3px var(--grid); }
+.react-flow__node.box.ghost { border: 2px dashed var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+.react-flow__node.box.bad { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--panel)); }
+.react-flow__node.box.locked { border-style: double; border-width: 5px; }
+.box-body { padding: 0.5rem 0.7rem; }
+.box-body strong { display: block; }
+.box-body .layer { font-size: 0.8rem; color: var(--ink-soft); }
+.box-body p { margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--ink-soft); }
+.react-flow__controls-button { background: var(--panel); color: var(--ink); border-color: var(--grid); }
+.react-flow__edge-textbg { fill: var(--paper); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

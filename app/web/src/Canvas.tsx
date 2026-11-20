@@ -65,13 +65,15 @@ export function Canvas({ state, selected, onSelect, open, onOpen, onPositionSave
   return (
     <ReactFlow
       key={shape}
-      nodes={nodes}
-      edges={edges}
+      defaultNodes={nodes}
+      defaultEdges={edges}
       onNodeClick={(_, n) => onSelect(n.id)}
       onNodeDoubleClick={(_, n) => onOpen(n.id)}
       onNodeDragStop={(_, n) => onPositionSave(n.id, n.position.x, n.position.y)}
       onPaneClick={() => onSelect(null)}
       nodesDraggable
+      nodesConnectable={false}
+      onlyRenderVisibleElements
       fitView
       proOptions={{ hideAttribution: true }}
     >

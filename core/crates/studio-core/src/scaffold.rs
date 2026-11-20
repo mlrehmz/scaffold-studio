@@ -163,4 +163,3 @@ pub fn validate_plan(design: &Design, plan: &ScaffoldPlan) -> Vec<String> {
     }
     problems
 }
-

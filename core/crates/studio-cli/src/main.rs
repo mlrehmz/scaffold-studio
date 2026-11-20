@@ -30,7 +30,7 @@ const USAGE: &str = "usage:
   studio scaffold <design.toml> <out_dir>       generate a TypeScript project
   studio drift    <design.toml> <project_dir>   report design/code drift
   studio replay   <process.toml> <notes_dir> <trace.jsonl> report note use
-later (not implemented): score, schema, context";
+later (not implemented): schema, context";
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -170,6 +170,20 @@ fn run(args: &[String]) -> Result<i32, String> {
             }
             let report = replay(&planned, &trace, &tokens);
             print_json(&report);
+            Ok(0)
+        }
+        ["score", project_dir, design_path, process_path, trace_path] => {
+            let plugin = TypeScriptPlugin;
+            let check = plugin.check(Path::new(project_dir))?;
+            let compile_errors = check.output.lines().filter(|line| line.contains("error TS")).count();
+            let design = load_or_exit(design_path)?;
+            let code = plugin.read_back(Path::new(project_dir))?;
+            let rule_violations = check_drift(&design, &code).len();
+            let process = Process::from_toml(&read(process_path)?)?;
+            let planned = step_paths(&process);
+            let trace = parse_trace(&read(trace_path)?)?;
+            let report = replay(&planned, &trace, &BTreeMap::new());
+            println!("{compile_errors},{rule_violations},{:.6}", report.adherence);
             Ok(0)
         }
         _ => Err(USAGE.to_string()),

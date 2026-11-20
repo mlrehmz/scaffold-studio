@@ -1,22 +1,26 @@
-/* Solarized light colors with strong ink and clear status colors. */
+/* A calm, high-contrast Solarized palette with a small future-tech accent. */
 :root {
   --paper: #fdf6e3;
-  --panel: #eee8d5;
-  --ink: #002b36;
-  --ink-soft: #586e75;
-  --grid: #c8c1ad;
-  --accent: #075985;
-  --danger: #a4262c;
-  --ok: #176b45;
+  --panel: #fffdf5;
+  --panel-alt: #eee8d5;
+  --ink: #073642;
+  --ink-soft: #52696e;
+  --grid: #d5cdb7;
+  --accent: #087e8b;
+  --accent-bright: #13a6b5;
+  --danger: #b3363d;
+  --ok: #18734d;
+  --shadow: 0 12px 32px rgb(7 54 66 / 9%);
+  --radius: 12px;
   color-scheme: light;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
+body { margin: 0; background: radial-gradient(ellipse at 18% 0%, #fffdf5 0, var(--paper) 60%); color: var(--ink); font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; }
 .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
 .boot { padding: 2rem; }
 
-header { display: flex; align-items: baseline; gap: 1.5rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--grid); }
-header h1 { margin: 0; font-size: 1.1rem; }
+header { display: flex; align-items: center; gap: 1.5rem; padding: 0.7rem 1.25rem; border-bottom: 1px solid var(--grid); background: color-mix(in srgb, var(--panel) 88%, transparent); box-shadow: 0 3px 14px rgb(7 54 66 / 4%); z-index: 2; }
+header h1 { margin: 0; font-size: 1rem; letter-spacing: -.02em; }
 header h1 span { color: var(--ink-soft); font-weight: 400; margin-left: 0.5rem; }
 header .error { margin: 0 0 0 auto; color: var(--danger); }
 nav { display: flex; gap: 0.25rem; }
@@ -29,15 +33,15 @@ main { display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
   .canvas { min-height: 260px; }
   .sidebar { min-height: 0; max-height: 100%; border-left: 0; border-top: 1px solid var(--grid); }
 }
-.canvas { min-height: 0; }
+.canvas { min-height: 0; position: relative; background-image: radial-gradient(var(--grid) .7px, transparent .7px); background-size: 20px 20px; }
 .canvas.empty { display: grid; place-items: center; color: var(--ink-soft); }
 
-.sidebar { display: flex; flex-direction: column; gap: 0.9rem; padding: 1rem; overflow-y: auto; border-left: 1px solid var(--grid); background: color-mix(in srgb, var(--panel) 55%, var(--paper)); }
+.sidebar { display: flex; flex-direction: column; gap: 0.9rem; padding: 1rem; overflow-y: auto; border-left: 1px solid var(--grid); background: var(--panel); box-shadow: var(--shadow); }
 label { display: block; font-weight: 700; margin-bottom: 0.3rem; }
-input, textarea { width: 100%; padding: 0.65rem 0.75rem; font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--ink-soft); border-radius: 6px; }
+input, textarea { width: 100%; padding: 0.7rem 0.8rem; font: inherit; color: var(--ink); background: #fffef9; border: 1px solid var(--grid); border-radius: 9px; }
 textarea { min-height: 110px; resize: vertical; }
 input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.panel { background: var(--panel); border: 1px solid var(--grid); border-left: 4px solid var(--accent); border-radius: 6px; padding: 0.7rem 0.9rem; }
+.panel { background: var(--panel); border: 1px solid var(--grid); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 0.85rem 1rem; box-shadow: 0 5px 16px rgb(7 54 66 / 5%); }
 .panel.ok { border-left-color: var(--ok); }
 .panel.blocked { border-left-color: var(--danger); }
 .panel h2 { margin: 0 0 0.3rem; font-size: 0.95rem; }
@@ -50,18 +54,19 @@ input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px
 .panel-switch .tab { padding: .55rem .8rem; }
 .scratchpad-intro { display: grid; gap: .25rem; }
 .scratchpad-intro span, .muted { color: var(--ink-soft); font-size: .88rem; }
-.conversation { min-height: 160px; padding: .75rem; border: 1px solid var(--grid); border-radius: 8px; background: var(--paper); }
+.conversation { min-height: 160px; padding: .75rem; border: 1px solid var(--grid); border-radius: var(--radius); background: #fbf7e9; }
 .message { margin: 0 0 .5rem; padding: .65rem .75rem; border-left: 3px solid var(--accent); background: var(--panel); border-radius: 4px; white-space: pre-wrap; }
 .bottom { margin-top: auto; }
-button { font: inherit; padding: 0.4rem 0.9rem; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+button { font: inherit; font-weight: 650; padding: 0.48rem 0.95rem; border-radius: 9px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; transition: background-color 120ms ease, box-shadow 120ms ease, transform 120ms ease; }
+button:hover:not(:disabled) { background: #066671; box-shadow: 0 4px 12px rgb(8 126 139 / 20%); transform: translateY(-1px); }
 button.quiet { background: none; color: var(--ink); border-color: var(--grid); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 code { font-size: 0.85em; }
 
 /* React Flow nodes */
-.react-flow__node.box { width: 210px; padding: 0; text-align: left; background: var(--paper); color: var(--ink); border: 2px solid var(--ink); border-radius: 8px; }
-.react-flow__node.box.selected { border-color: var(--ink); box-shadow: 0 0 0 3px var(--grid); }
-.react-flow__node.box.ghost { border: 2px dashed var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+.react-flow__node.box { width: 210px; padding: 0; text-align: left; background: var(--panel); color: var(--ink); border: 1.5px solid #52747a; border-radius: var(--radius); box-shadow: 0 6px 18px rgb(7 54 66 / 10%); }
+.react-flow__node.box.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgb(19 166 181 / 20%), 0 8px 22px rgb(7 54 66 / 12%); }
+.react-flow__node.box.ghost { border: 2px dashed var(--accent-bright); background: #e9f7f5; }
 .react-flow__node.box.bad { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--panel)); }
 .react-flow__node.box.locked { border-style: double; border-width: 5px; }
 .box-body { padding: 0.5rem 0.7rem; }

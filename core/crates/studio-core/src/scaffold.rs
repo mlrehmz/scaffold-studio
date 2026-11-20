@@ -85,8 +85,42 @@ impl LanguagePlugin for TypeScriptPlugin {
         Ok(ScaffoldPlan { files })
     }
 
-    fn materialize(&self, _p: &ScaffoldPlan) -> Result<Vec<GeneratedFile>, String> {
-        Err(not_implemented("TypeScriptPlugin::materialize ()"))
+    fn materialize(&self, p: &ScaffoldPlan) -> Result<Vec<GeneratedFile>, String> {
+        let mut files = vec![GeneratedFile {
+            path: "tsconfig.json".into(),
+            content: include_str!("../tests/golden/shop_ts/tsconfig.json").into(),
+        }];
+        for planned_file in &p.files {
+            let mut content = format!("// @box {}\n// {}\n", planned_file.box_id, planned_file.responsibility);
+            for import in &planned_file.imports {
+                content.push_str(&format!("import \"./{import}\";\n"));
+            }
+            content.push_str("\nexport {};\n");
+
+            for member in &planned_file.members {
+                content.push_str(&format!("\n// signature: {member}\n"));
+                let mut chars = member.chars();
+                match chars.next() {
+                    Some(first) if first.is_ascii_alphabetic() || first == '_' || first == '$' => {
+                        let name = member
+                            .split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_' || ch == '$'))
+                            .next()
+                            .unwrap_or_default();
+                        content.push_str(&format!(
+                            "export function {name}(..._args: unknown[]): never {{\n  throw new Error(\"TODO(step: {}): {member}\");\n}}\n",
+                            planned_file.box_id
+                        ));
+                    }
+                    _ => content.push_str(&format!("// TODO: unparseable member: {member}\n")),
+                }
+            }
+
+            files.push(GeneratedFile {
+                path: planned_file.path.clone(),
+                content,
+            });
+        }
+        Ok(files)
     }
 
     fn check(&self, _dir: &Path) -> Result<CheckResult, String> {

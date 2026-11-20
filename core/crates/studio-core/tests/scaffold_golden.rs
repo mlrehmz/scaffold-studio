@@ -73,7 +73,6 @@ fn plan_skips_external_and_system_boxes() {
 }
 
 #[test]
-#[ignore]
 fn materialized_shop_matches_golden() {
     let plugin = TypeScriptPlugin;
     let files = plugin.materialize(&plugin.plan(&shop()).unwrap()).unwrap();
@@ -82,7 +81,6 @@ fn materialized_shop_matches_golden() {
 }
 
 #[test]
-#[ignore]
 fn materialize_is_deterministic() {
     let plugin = TypeScriptPlugin;
     let plan = plugin.plan(&shop()).unwrap();

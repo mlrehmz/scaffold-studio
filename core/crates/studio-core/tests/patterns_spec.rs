@@ -55,7 +55,6 @@ fn no_smell_for_a_single_implementer() {
 }
 
 #[test]
-#[ignore]
 fn expand_gives_an_edge_and_a_question() {
     let cmds = expand_pattern(&smelly(), "strategy", "checkout").unwrap();
     assert_eq!(cmds.len(), 2);
@@ -77,7 +76,6 @@ fn expand_gives_an_edge_and_a_question() {
 }
 
 #[test]
-#[ignore]
 fn apply_pattern_adds_the_contract_edge() {
     let proposal =
         r#"{"id":"p","source":"user","commands":[{"op":"apply_pattern","pattern":"strategy","target":"checkout"}]}"#;

@@ -83,6 +83,26 @@ pub fn find_smells(design: &Design) -> Vec<Smell> {
     smells
 }
 
-pub fn expand_pattern(_design: &Design, _pattern: &str, _target: &str) -> Result<Vec<Command>, String> {
-    Err(crate::not_implemented("expand_pattern ()"))
+pub fn expand_pattern(design: &Design, pattern: &str, target: &str) -> Result<Vec<Command>, String> {
+    if pattern != "strategy" {
+        return Err(format!("unknown pattern `{pattern}`"));
+    }
+    let smell = find_smells(design)
+        .into_iter()
+        .find(|smell| smell.caller == target)
+        .ok_or_else(|| format!("no smell found for `{target}`"))?;
+    let text = format!(
+        "Strategy: `{}` now calls `{}`. Delete its direct edges to {} yourself: there is no remove_edge command yet.",
+        smell.caller,
+        smell.contract,
+        smell.implementers.join(", ")
+    );
+    Ok(vec![
+        Command::AddEdge {
+            from: smell.caller,
+            to: smell.contract,
+            kind: EdgeKind::Calls,
+        },
+        Command::AskQuestion { text },
+    ])
 }

@@ -7,7 +7,6 @@
 use crate::process::{Process, Step};
 use crate::tokens::estimate_tokens;
 use serde::Serialize;
-#[allow(unused_imports)] // BTreeSet is used by T05
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
 use std::path::Path;
@@ -351,8 +350,42 @@ fn check_helper_agent(ctx: &Ctx) -> Vec<Lint> {
     lints
 }
 
-fn check_similar_triggers(_ctx: &Ctx) -> Vec<Lint> {
-    Vec::new()
+fn check_similar_triggers(ctx: &Ctx) -> Vec<Lint> {
+    let steps = &ctx.process.steps;
+    let mut lints = Vec::new();
+    for i in 0..steps.len() {
+        let first = trigger_words(&steps[i].trigger);
+        if first.is_empty() {
+            continue;
+        }
+        for second_step in &steps[i + 1..] {
+            let second = trigger_words(&second_step.trigger);
+            if second.is_empty() {
+                continue;
+            }
+            let intersection = first.intersection(&second).count();
+            let union = first.union(&second).count();
+            let overlap = intersection as f32 / union as f32;
+            if overlap >= SIMILAR_TRIGGER_OVERLAP {
+                lints.push(Lint {
+                    check: "similar_triggers",
+                    severity: Severity::Warning,
+                    path: step_ref(&steps[i]),
+                    message: format!("trigger is similar to {} ({overlap:.2})", second_step.id),
+                });
+            }
+        }
+    }
+    lints
+}
+
+fn trigger_words(trigger: &str) -> BTreeSet<String> {
+    trigger
+        .to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .map(str::to_string)
+        .collect()
 }
 
 #[cfg(test)]
@@ -504,7 +537,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn similar_triggers_are_a_warning() {
         let mut p = shop_process();
         p.steps[0].trigger = "implement the payment service api".into();

@@ -118,7 +118,6 @@ fn file(path: &str, box_id: &str) -> PlannedFile {
 }
 
 #[test]
-#[ignore]
 fn plan_validator_accepts_a_good_plan_and_catches_missing_and_invented_files() {
     use studio_core::scaffold::validate_plan;
     let d = shop();

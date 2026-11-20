@@ -7,7 +7,7 @@
 use crate::model::Design;
 use crate::not_implemented;
 use serde::{Deserialize, Serialize};
-use std::{path::Path, process::Command};
+use std::{collections::BTreeSet, path::Path, process::Command};
 
 /// One file to generate. The plan says WHAT; `materialize` decides HOW it looks.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -143,7 +143,24 @@ impl LanguagePlugin for TypeScriptPlugin {
 }
 
 
-pub fn validate_plan(_design: &Design, _plan: &ScaffoldPlan) -> Vec<String> {
-    Vec::new()
+pub fn validate_plan(design: &Design, plan: &ScaffoldPlan) -> Vec<String> {
+    let mut problems = Vec::new();
+    for design_box in &design.boxes {
+        if design_box.kind.has_code() && !plan.files.iter().any(|file| file.box_id == design_box.id) {
+            problems.push(format!("box `{}` has no file", design_box.id));
+        }
+    }
+    for file in &plan.files {
+        if design.find(&file.box_id).is_none() {
+            problems.push(format!("file `{}` has no box", file.path));
+        }
+    }
+    let mut paths = BTreeSet::new();
+    for file in &plan.files {
+        if !paths.insert(file.path.as_str()) {
+            problems.push(format!("duplicate path `{}`", file.path));
+        }
+    }
+    problems
 }
 

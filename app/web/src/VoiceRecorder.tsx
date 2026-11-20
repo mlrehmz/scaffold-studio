@@ -29,7 +29,9 @@ export function VoiceRecorder({ busy, onTranscribe, onTranscript }: Props) {
     try {
       stream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
       const chunks: Blob[] = [];
-      const current = new MediaRecorder(stream.current);
+      const requestedType = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"]
+        .find((type) => MediaRecorder.isTypeSupported(type));
+      const current = new MediaRecorder(stream.current, requestedType ? { mimeType: requestedType } : undefined);
       recorder.current = current;
       current.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
       current.onstop = async () => {
@@ -37,7 +39,13 @@ export function VoiceRecorder({ busy, onTranscribe, onTranscript }: Props) {
         stream.current = null;
         recorder.current = null;
         setRecording(false);
-        const text = await onTranscribe(new Blob(chunks, { type: current.mimeType }));
+        const type = current.mimeType || requestedType || "audio/webm";
+        const recording = new Blob(chunks, { type });
+        if (!recording.size) {
+          setError("No audio was captured. Check your microphone and try again.");
+          return;
+        }
+        const text = await onTranscribe(recording);
         if (text) onTranscript(text);
       };
       current.start();

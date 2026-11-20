@@ -4,7 +4,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { LocalModelProposer, RuleBasedProposer, type Proposer } from "./proposer";
-import { transcribe } from "./speech";
+import { isAudioRecording, transcribe } from "./speech";
 import * as studio from "./studio";
 import type { Pending, State } from "./types";
 
@@ -64,7 +64,7 @@ async function handle(req: Request): Promise<Response> {
 
     if (req.method === "POST" && path === "/api/transcribe") {
       const audio = (await req.formData()).get("audio");
-      if (!(audio instanceof File) || !audio.type.startsWith("audio/") || audio.size === 0) {
+      if (!isAudioRecording(audio)) {
         return json({ error: "expected a non-empty audio recording" }, 400);
       }
       if (audio.size > 25_000_000) return json({ error: "recording is larger than 25 MB" }, 413);

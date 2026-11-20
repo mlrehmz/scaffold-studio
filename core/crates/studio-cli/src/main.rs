@@ -4,13 +4,14 @@
 //! Exit codes: 0 ok, 1 checked and not ok, 2 usage or I/O error.
 
 use serde::Serialize;
-use std::{env, fs, path::Path, process::exit};
+use std::{collections::BTreeMap, env, fs, path::Path, process::exit};
 use studio_core::{
     drift::check_drift,
     evaluate::evaluate_json,
     model::Design,
     notes::{lint_notes, step_paths, write_notes, Severity},
     process::{derive_process, merge_process, Process},
+    replay::{parse_trace, replay},
     rules::check_rules,
     scaffold::{validate_plan, LanguagePlugin, TypeScriptPlugin},
     tokens::estimate_tokens,
@@ -28,7 +29,8 @@ const USAGE: &str = "usage:
   studio lint     <process.toml> <notes_dir>    lint the notes (exit 1 if any error)
   studio scaffold <design.toml> <out_dir>       generate a TypeScript project
   studio drift    <design.toml> <project_dir>   report design/code drift
-later (not implemented): replay, score, schema, context";
+  studio replay   <process.toml> <notes_dir> <trace.jsonl> report note use
+later (not implemented): score, schema, context";
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -154,6 +156,21 @@ fn run(args: &[String]) -> Result<i32, String> {
             let drift = check_drift(&design, &code);
             print_json(&drift);
             Ok(if drift.is_empty() { 0 } else { 1 })
+        }
+        ["replay", process_path, notes_dir, trace_path] => {
+            let process = Process::from_toml(&read(process_path)?)?;
+            let planned = step_paths(&process);
+            let trace = parse_trace(&read(trace_path)?)?;
+            let mut tokens = BTreeMap::new();
+            let mut note_paths = vec!["INDEX.md".to_string()];
+            note_paths.extend(planned.iter().cloned());
+            for path in note_paths {
+                let text = read(&format!("{notes_dir}/{path}"))?;
+                tokens.insert(path, estimate_tokens(&text));
+            }
+            let report = replay(&planned, &trace, &tokens);
+            print_json(&report);
+            Ok(0)
         }
         _ => Err(USAGE.to_string()),
     }

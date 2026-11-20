@@ -330,9 +330,7 @@ fn check_helper_agent(ctx: &Ctx) -> Vec<Lint> {
         if helper.context_files.is_empty() {
             missing.push("context_files");
         }
-        if helper.return_format.trim().is_empty()
-            || !helper.return_format.chars().any(|c| c.is_ascii_digit())
-        {
+        if helper.return_format.trim().is_empty() || !helper.return_format.chars().any(|c| c.is_ascii_digit()) {
             missing.push("return_format");
         }
         if helper.must_not_touch.is_empty() {

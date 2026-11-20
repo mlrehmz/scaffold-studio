@@ -38,8 +38,8 @@ async function handle(req: Request): Promise<Response> {
     if (req.method === "GET" && path === "/api/process") {
       const process = studio.deriveProcess(DESIGN, PROCESS);
       studio.notes(DESIGN, PROCESS, NOTES);
-      const lints = studio.lint(PROCESS, NOTES);
-      return json({ process, lints });
+      const { lints, note_tokens } = studio.lint(PROCESS, NOTES);
+      return json({ process, lints, note_tokens });
     }
 
     if (req.method === "POST" && path === "/api/intent") {

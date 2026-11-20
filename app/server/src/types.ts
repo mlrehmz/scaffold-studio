@@ -34,6 +34,7 @@ export interface Step {
 }
 export interface Process { steps: Step[] }
 export type Lint = { check: string; severity: "error" | "warning"; path: string; message: string };
+export type NoteTokenCount = [path: string, tokens: number];
 
 // TOML/JSON keys are singular on purpose: box, edge, rule.
 export interface Design {

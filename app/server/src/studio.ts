@@ -53,8 +53,8 @@ export function notes(designPath: string, processPath: string, notesDir: string)
   if (r.code !== 0) throw new Error(r.err || r.out);
 }
 
-export function lint(processPath: string, notesDir: string): Lint[] {
+export function lint(processPath: string, notesDir: string): { lints: Lint[]; note_tokens: [string, number][] } {
   const r = run(["lint", processPath, notesDir]);
   if (r.code > 1) throw new Error(r.err || r.out);
-  return JSON.parse(r.out).lints;
+  return JSON.parse(r.out);
 }

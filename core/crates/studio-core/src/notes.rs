@@ -5,7 +5,6 @@
 //! pattern of `check_broken_link`. The tests at the bottom are the spec.
 
 use crate::process::{Process, Step};
-#[allow(unused_imports)] // used by T02
 use crate::tokens::estimate_tokens;
 use serde::Serialize;
 #[allow(unused_imports)] // BTreeSet is used by T05
@@ -276,8 +275,20 @@ fn check_too_many_hops(ctx: &Ctx) -> Vec<Lint> {
         .collect()
 }
 
-fn check_entry_too_big(_ctx: &Ctx) -> Vec<Lint> {
-    Vec::new()
+fn check_entry_too_big(ctx: &Ctx) -> Vec<Lint> {
+    let Some(index) = ctx.files.get(INDEX) else {
+        return Vec::new();
+    };
+    let tokens = estimate_tokens(index);
+    if tokens <= ENTRY_TOKEN_LIMIT {
+        return Vec::new();
+    }
+    vec![Lint {
+        check: "entry_too_big",
+        severity: Severity::Error,
+        path: INDEX.to_string(),
+        message: format!("INDEX.md needs {tokens} tokens (max {ENTRY_TOKEN_LIMIT})"),
+    }]
 }
 
 fn check_trigger_and_finish(_ctx: &Ctx) -> Vec<Lint> {
@@ -397,7 +408,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn entry_too_big_is_reported() {
         let p = shop_process();
         let dir = fixture("big", &p);
